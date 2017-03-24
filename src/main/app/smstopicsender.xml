@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:oauth2="http://www.mulesoft.org/schema/mule/oauth2" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:sqs="http://www.mulesoft.org/schema/mule/sqs" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/sqs http://www.mulesoft.org/schema/mule/sqs/current/mule-sqs.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/oauth2 http://www.mulesoft.org/schema/mule/oauth2/current/mule-oauth2.xsd">
+    <sqs:config name="Amazon_SQS__Configuration" accessKey="${sqs.access.key}" secretKey="${sqs.secret.key}" defaultQueueName="${queue.name}" url="${queue.url}" protocol="HTTP" doc:name="Amazon SQS: Configuration" region="APSOUTHEAST2"/>
+    <http:listener-config name="HTTP_Listener_Configuration" host="0.0.0.0" port="9091" doc:name="HTTP Listener Configuration"/>
+    <http:request-config name="TDEV_HTTP_Connector" protocol="HTTPS" host="api.telstra.com" port="443"  doc:name="HTTP Request Configuration">
+        <oauth2:client-credentials-grant-type clientId="${tdev.client.id}" clientSecret="${tdev.client.secret}">
+            <oauth2:token-request tokenUrl="https://api.telstra.com/v1/oauth/token">
+                <oauth2:token-response accessToken="#[json:access_token]" expiresIn="#[json:expires_in]"/>
+            </oauth2:token-request>
+        </oauth2:client-credentials-grant-type>
+    </http:request-config>
+    <flow name="smstopicsenderFlow">
+        <sqs:receive-messages config-ref="Amazon_SQS__Configuration" doc:name="Amazon SQS (Streaming)"/>
+        <set-payload value="{   &quot;to&quot;:&quot;${tdev.recipient}&quot;,      &quot;body&quot;:&quot;#[json:Message]&quot; }" doc:name="Set Payload"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
+        <http:request config-ref="TDEV_HTTP_Connector" path="/v1/sms/messages" method="POST" doc:name="HTTP"/>
+    </flow>
+    <!-- 
+    <flow name="smstopicsenderFlow1">
+        <http:listener config-ref="HTTP_Listener_Configuration" path="/sms" doc:name="HTTP"/>
+    </flow>
+     -->
+</mule>
